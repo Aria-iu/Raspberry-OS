@@ -1,0 +1,30 @@
+[package]
+name = "raspberrypi-OS"
+version = "0.1.0"
+edition = "2021"
+
+[profile.release]
+lto = true
+
+[features]
+default = []
+bsp_rpi3 = ["tock-registers"]
+bsp_rpi4 = ["tock-registers"]
+
+[[bin]]
+name = "kernel"
+path = "src/main.rs"
+
+##--------------------------------------------------------------------------------------------------
+## Dependencies
+##--------------------------------------------------------------------------------------------------
+
+[lib]
+name = "libkernel"
+test = true
+
+[dependencies]
+tock-registers = { version = "0.8.x", default-features = false, features = ["register_types"], optional = true }
+# Platform specific dependencies
+[target.'cfg(target_arch = "aarch64")'.dependencies]
+aarch64-cpu = { version = "9.x.x" }
