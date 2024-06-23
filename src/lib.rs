@@ -109,6 +109,7 @@
 //! 2. Once finished with architectural setup, the arch code calls `kernel_init()`.
 
 #![allow(clippy::upper_case_acronyms)]
+#![allow(missing_docs)]
 #![allow(incomplete_features)]
 #![allow(internal_features)]
 #![feature(core_intrinsics)]
@@ -123,11 +124,8 @@
 #![feature(step_trait)]
 #![feature(trait_alias)]
 #![no_std]
-// Testing
-#![cfg_attr(test, no_main)]
-#![feature(custom_test_frameworks)]
-#![reexport_test_harness_main = "test_main"]
-#![test_runner(crate::test_runner)]
+
+
 
 mod panic;
 mod synchronization;

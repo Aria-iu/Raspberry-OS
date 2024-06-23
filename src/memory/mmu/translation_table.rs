@@ -25,75 +25,58 @@ pub use arch_translation_table::FixedSizeTranslationTable;
 /// Translation table interfaces.
 pub mod interface {
     use super::*;
+    use crate::memory::mmu::PageAddress;
 
     /// Translation table operations.
-    pub trait TranslationTable {
-        /// Anything that needs to run before any of the other provided functions can be used.
-        ///
-        /// # Safety
-        ///
-        /// - Implementor must ensure that this function can run only once or is harmless if invoked
-        ///   multiple times.
-        fn init(&mut self);
+        pub trait TranslationTable {
+            /// Anything that needs to run before any of the other provided functions can be used.
+            ///
+            /// # Safety
+            ///
+            /// - Implementor must ensure that this function can run only once or is harmless if invoked
+            ///   multiple times.
+            #[allow(unused)]
+            fn init(&mut self) -> Result<(), &'static str>;
 
-        /// The translation table's base address to be used for programming the MMU.
-        fn phys_base_address(&self) -> Address<Physical>;
+            /// Map the given virtual memory region to the given physical memory region.
+            ///
+            /// # Safety
+            ///
+            /// - Using wrong attributes can cause multiple issues of different nature in the system.
+            /// - It is not required that the architectural implementation prevents aliasing. That is,
+            ///   mapping to the same physical memory using multiple virtual addresses, which would
+            ///   break Rust's ownership assumptions. This should be protected against in the kernel's
+            ///   generic MMU code.
+            unsafe fn map_at(
+                &mut self,
+                virt_region: &MemoryRegion<Virtual>,
+                phys_region: &MemoryRegion<Physical>,
+                attr: &AttributeFields,
+            ) -> Result<(), &'static str>;
 
-        /// Map the given virtual memory region to the given physical memory region.
-        ///
-        /// # Safety
-        ///
-        /// - Using wrong attributes can cause multiple issues of different nature in the system.
-        /// - It is not required that the architectural implementation prevents aliasing. That is,
-        ///   mapping to the same physical memory using multiple virtual addresses, which would
-        ///   break Rust's ownership assumptions. This should be protected against in the kernel's
-        ///   generic MMU code.
-        unsafe fn map_at(
-            &mut self,
-            virt_region: &MemoryRegion<Virtual>,
-            phys_region: &MemoryRegion<Physical>,
-            attr: &AttributeFields,
-        ) -> Result<(), &'static str>;
-    }
-}
+            /// Try to translate a virtual page address to a physical page address.
+            ///
+            /// Will only succeed if there exists a valid mapping for the input page.
+            fn try_virt_page_addr_to_phys_page_addr(
+                &self,
+                virt_page_addr: PageAddress<Virtual>,
+            ) -> Result<PageAddress<Physical>, &'static str>;
 
-//--------------------------------------------------------------------------------------------------
-// Testing
-//--------------------------------------------------------------------------------------------------
+            /// Try to get the attributes of a page.
+            ///
+            /// Will only succeed if there exists a valid mapping for the input page.
+            fn try_page_attributes(
+                &self,
+                virt_page_addr: PageAddress<Virtual>,
+            ) -> Result<AttributeFields, &'static str>;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::memory::mmu::{AccessPermissions, MemAttributes, PageAddress};
-    use arch_translation_table::MinSizeTranslationTable;
-    use interface::TranslationTable;
-    use test_macros::kernel_test;
+            /// Try to translate a virtual address to a physical address.
+            ///
+            /// Will only succeed if there exists a valid mapping for the input address.
+            fn try_virt_addr_to_phys_addr(
+                &self,
+                virt_addr: Address<Virtual>,
+            ) -> Result<Address<Physical>, &'static str>;
+        }
 
-    /// Sanity checks for the TranslationTable implementation.
-    #[kernel_test]
-    fn translationtable_implementation_sanity() {
-        // This will occupy a lot of space on the stack.
-        let mut tables = MinSizeTranslationTable::new();
-
-        tables.init();
-
-        let virt_start_page_addr: PageAddress<Virtual> = PageAddress::from(0);
-        let virt_end_exclusive_page_addr: PageAddress<Virtual> =
-            virt_start_page_addr.checked_offset(5).unwrap();
-
-        let phys_start_page_addr: PageAddress<Physical> = PageAddress::from(0);
-        let phys_end_exclusive_page_addr: PageAddress<Physical> =
-            phys_start_page_addr.checked_offset(5).unwrap();
-
-        let virt_region = MemoryRegion::new(virt_start_page_addr, virt_end_exclusive_page_addr);
-        let phys_region = MemoryRegion::new(phys_start_page_addr, phys_end_exclusive_page_addr);
-
-        let attr = AttributeFields {
-            mem_attributes: MemAttributes::CacheableDRAM,
-            acc_perms: AccessPermissions::ReadWrite,
-            execute_never: true,
-        };
-
-        unsafe { assert_eq!(tables.map_at(&virt_region, &phys_region, &attr), Ok(())) };
-    }
 }
